@@ -1,0 +1,378 @@
+/* General Styles */
+body {
+    font-family: Arial, sans-serif;
+    margin: 0;
+    padding: 0;
+    color: #333;
+}
+
+img {
+    max-width: 100%;
+    height: auto;
+}
+
+/* Header */
+header {
+    background-color: #f4f4f4;
+    padding: 20px 0;
+}
+
+header .container {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 0 20px;
+}
+
+.logo {
+    max-width: 150px;
+}
+
+nav ul {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+}
+
+nav ul li {
+    margin-right: 20px;
+}
+
+nav ul li a {
+    text-decoration: none;
+    color: #333;
+    font-weight: bold;
+}
+
+.login-options {
+    display: flex;
+    align-items: center;
+}
+
+/* General Button Styles */
+button, .btn, .apply-link, .back-home, .forgotpassword {
+    background-color: #007bff;
+    color: #fff;
+    border: none;
+    padding: 10px 20px;
+    border-radius: 5px;
+    text-decoration: none;
+    font-weight: bold;
+    cursor: pointer;
+    display: inline-block;
+    text-align: center;
+}
+
+button a, .btn a, .apply-link a, .back-home a, .forgotpassword a {
+    color: #fff;
+    text-decoration: none;
+}
+
+button:hover, .btn:hover, .apply-link:hover, .back-home:hover, .forgotpassword:hover {
+    background-color: #0056b3;
+    text-decoration: none;
+}
+
+/* Nav Button (Sliders) */
+.nav-button {
+    background-color: rgba(0, 123, 255, 0.8);
+    color: #fff;
+    border: none;
+    padding: 10px;
+    border-radius: 5px;
+    cursor: pointer;
+}
+
+.nav-button:hover {
+    background-color: rgba(0, 123, 255, 1);
+}
+
+/* Login Options Buttons */
+.login-options button {
+    background-color: #007bff;
+    color: #fff;
+    border: none;
+    padding: 10px 20px;
+    margin-right: 10px;
+    border-radius: 5px;
+    cursor: pointer;
+}
+
+.login-options button:hover {
+    background-color: #0056b3;
+}
+
+.login-options button a {
+    color: #fff;
+    text-decoration: none;
+}
+
+/* Header Alignment */
+header h1 {
+    text-align: center;
+}
+
+/* Sections */
+section {
+    padding: 40px 20px;
+    text-align: center;
+}
+
+h2 {
+    color: #333;
+    margin-bottom: 20px;
+}
+
+section p {
+    color: #ffffff;
+    font-size: 16px;
+}
+
+/* About, Careers, and Team */
+.about-section, .team-section, .careers-section {
+    display: flex;
+    justify-content: space-between;
+    padding: 0 10%;
+}
+
+.about-section div, .team-section div, .careers-section div {
+    margin: 0 10px;
+    flex: 1;
+}
+
+/* Listings Section */
+.listings-section {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: space-between;
+    padding: 2rem;
+}
+
+.property {
+    background-color: #ffffff;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    margin: 10px;
+    padding: 10px;
+    width: calc(50% - 30px);
+    box-sizing: border-box;
+    text-align: left;
+    overflow: hidden;
+}
+
+.property img {
+    width: 100%;
+    height: 50%;
+    max-width: 100%;
+    border-radius: 5px;
+    margin-bottom: 10px;
+}
+
+.property h3 {
+    margin: 10px 0;
+    font-size: 18px;
+}
+
+.property p {
+    margin: 5px 0;
+    font-size: 16px;
+}
+
+/* Forms */
+form {
+    max-width: 500px;
+    margin: 0 auto;
+    padding: 20px;
+    border: 1px solid #ddd;
+    border-radius: 5px;
+    background-color: #f9f9f9;
+}
+
+form label {
+    display: block;
+    margin-bottom: 5px;
+}
+
+form input[type="text"], form input[type="password"], form textarea {
+    width: calc(100% - 22px);
+    padding: 10px;
+    margin-bottom: 10px;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    box-sizing: border-box;
+}
+
+form input[type="submit"] {
+    background-color: #007bff;
+    color: #fff;
+    border: none;
+    padding: 10px 20px;
+    border-radius: 5px;
+    cursor: pointer;
+}
+
+form input[type="submit"]:hover {
+    background-color: #0056b3;
+}
+
+/* Tabs */
+.tabs {
+    display: flex;
+    margin-bottom: 20px;
+}
+
+.tab {
+    flex: 1;
+    text-align: center;
+    padding: 10px;
+    border: 1px solid #ddd;
+    border-radius: 5px 5px 0 0;
+    background-color: #f9f9f9;
+    cursor: pointer;
+}
+
+.tab.active {
+    background-color: #ffffff;
+    border-bottom: 1px solid #ffffff;
+}
+
+.tab-content {
+    border: 1px solid #ddd;
+    border-radius: 0 0 5px 5px;
+    background-color: #ffffff;
+    padding: 15px;
+}
+
+.tab-content input, .tab-content textarea {
+    width: calc(100% - 24px);
+    padding: 8px;
+    margin-bottom: 10px;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    font-size: 14px;
+    box-sizing: border-box;
+}
+
+.tab-content textarea {
+    resize: vertical;
+    height: 100px;
+}
+
+/* Landlord and Resident Login */
+.landlord-page, .resident-page {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 20px;
+}
+
+.landlord-page .logo, .resident-page .logo {
+    max-width: 150px;
+    margin-bottom: 20px;
+}
+
+.landlord-page h1, .resident-page h1 {
+    margin-bottom: 20px;
+    color: #333;
+}
+
+.landlord-page form, .resident-page form {
+    max-width: 500px;
+    width: 100%;
+}
+
+.landlord-page input[type="text"], .landlord-page input[type="password"], .resident-page input[type="text"], .resident-page input[type="password"] {
+    width: calc(100% - 22px);
+    padding: 10px;
+    margin-bottom: 10px;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    box-sizing: border-box;
+}
+
+.landlord-page input[type="submit"], .resident-page input[type="submit"] {
+    background-color: #007bff;
+    color: #fff;
+    border: none;
+    padding: 10px 20px;
+    border-radius: 5px;
+    cursor: pointer;
+}
+
+.landlord-page input[type="submit"]:hover, .resident-page input[type="submit"]:hover {
+    background-color: #0056b3;
+}
+
+/* Back to Home and Forgot Password */
+.back-home, .forgotpassword {
+    display: inline-block;
+    padding: 10px 20px;
+    background-color: #007bff;
+    color: #fff;
+    text-decoration: none;
+    border-radius: 5px;
+    margin-bottom: 20px;
+}
+
+.back-home:hover, .forgotpassword:hover {
+    background-color: #0056b3;
+}
+
+/* Footer */
+footer {
+    background-color: #f4f4f4;
+    text-align: center;
+    padding: 10px;
+    width: 100%;
+    position: relative;
+    bottom: 0;
+    margin-top: auto;
+}
+
+/* Sliders */
+
+.slider {
+    position: relative;
+    overflow: hidden;
+    width: 100%;
+    max-width: 100%;
+    height: 400px; /* Set a fixed height for the slider */
+}
+
+.slides {
+    display: flex;
+    transition: transform 0.5s ease-in-out;
+}
+
+.slides img {
+    width: 100%;
+    height: auto;
+    flex: 0 0 100%;
+}
+
+.nav-button {
+    position: absolute;
+    top: 50%;
+    transform: translateY(-50%);
+    background-color: rgba(0, 123, 255, 0.8);
+    color: #fff;
+    border: none;
+    padding: 10px;
+    border-radius: 5px;
+    cursor: pointer;
+}
+
+.nav-button.prev {
+    left: 10px;
+}
+
+.nav-button.next {
+    right: 10px;
+}
+
+.nav-button:hover {
+    background-color: rgba(0, 123, 255, 1);
+}

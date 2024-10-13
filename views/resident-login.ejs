@@ -1,0 +1,23 @@
+
+    <%- include('partials/header') %>
+<body>
+    <div class="resident-page">
+        
+        <img src="/images/logo-png.jpg" alt="YQR Residencies Logo" class="logo">
+        <h1>Resident Login</h1>
+        <form action="resident-afterlogin.html" method="post">
+            <label for="username">Username:</label>
+            <input type="text" id="username" name="username" required>
+            <label for="password">Password:</label>
+            <input type="password" id="password" name="password" required>
+            <button type="submit">Login</button>
+            <a href="/" class="back-home">Back to Home</a>
+            <a href="/resident-forgotpassword" class="forgot-password">Forgot Password</a>
+        </form>
+    </div>
+
+     <footer>
+        <p>&copy; 2024 Property Management Services</p>
+    </footer>
+</body>
+</html>

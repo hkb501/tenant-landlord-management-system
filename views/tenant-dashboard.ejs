@@ -1,1 +1,60 @@
-<h1>this is tenant</h1>
+<%- include('partials/header') %>
+<body>
+    <div class="dashboard-container">
+        
+        <!-- First Row: Navigation Links -->
+        <div class="dashboard-menu">
+            <ul>
+                <li><a href="/tenant-dashboard/profile">Profile Management</a></li>
+                <li><a href="/tenant-dashboard/pay-rent">Pay Rent</a></li>
+                <li><a href="/tenant-dashboard/mailbox">Mailbox</a></li>
+                <li><a href="/tenant-dashboard/documents">Access Documents</a></li>
+            </ul>
+        </div>
+
+        <!-- Second Row: 3 Columns (Profile, Payment History, Mailbox) -->
+        <div class="dashboard-grid">
+            <!-- First Column: User Info -->
+            <div class="dashboard-column">
+                <h2>User Info</h2>
+                <p>Name: John Doe</p>
+                <p>Email: johndoe@example.com</p>
+                <p>Phone: +1 555-555-5555</p>
+            </div>
+
+            <!-- Second Column: Payment History -->
+            <div class="dashboard-column">
+                <h2>Payment History</h2>
+                <ul>
+                    <li>September 2024 - $1200 - Paid</li>
+                    <li>August 2024 - $1200 - Paid</li>
+                    <li>July 2024 - $1200 - Paid</li>
+                </ul>
+            </div>
+
+            <!-- Third Column: Mailbox Info -->
+            <div class="dashboard-column">
+                <h2>Mailbox</h2>
+                <ul>
+                    <li>New message from landlord</li>
+                    <li>Maintenance request update</li>
+                </ul>
+            </div>
+        </div>
+
+        <!-- Third Row: Documents -->
+        <div class="dashboard-documents">
+            <h2>Documents</h2>
+            <ul>
+                <li><a href="/documents/lease-agreement.pdf" download>Lease Agreement</a></li>
+                <li><a href="/documents/maintenance-request.pdf" download>Maintenance Request</a></li>
+            </ul>
+        </div>
+        
+    </div>
+
+    <footer>
+        <p>&copy; 2024 Property Management Services</p>
+    </footer>
+</body>
+</html>

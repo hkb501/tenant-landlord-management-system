@@ -108,8 +108,11 @@ app.get(
         userId,
       ]);
       const userRole = user.rows[0].role;
-      if (userRole == "tenant") {
-        res.render("tenant-dashboard");
+      if (userRole === "tenant") {
+        res.render("tenant-dashboard", {
+          title: "Tenant Dashboard",
+          cssFile: "tenant-dashboard.css",
+        });
       } else {
         res.render("/landlord-dashboard");
       }
@@ -124,27 +127,11 @@ app.get("/", (req, res) => {
   res.render("home", { title: "home", cssFile: "styles.css" });
 });
 
-app.get("/login", (req, res) => {
-  res.render("login", { title: "login" });
-});
-
-app.get("/landlord-login", (req, res) => {
-  res.render("landlord-login", { title: "landlord login" });
-});
-
 app.get("/resident-login", (req, res) => {
   res.render("resident-login", {
     title: "resident login",
     cssFile: "style-login.css",
   });
-});
-
-app.get("/resident-forgotpassword", (req, res) => {
-  res.render("resident-forgotpassword", { title: "resident forgot password" });
-});
-
-app.get("/landlord-forgotpassword", (req, res) => {
-  res.render("landlord-forgotpassword", { title: "landlord forgot password" });
 });
 
 app.get("/rental-application", (req, res) => {

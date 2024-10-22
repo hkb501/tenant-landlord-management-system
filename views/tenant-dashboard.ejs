@@ -17,28 +17,45 @@
             <!-- First Column: User Info -->
             <div class="dashboard-column">
                 <h2>User Info</h2>
-                <p>Name: John Doe</p>
-                <p>Email: johndoe@example.com</p>
-                <p>Phone: +1 555-555-5555</p>
+                <p>Name:  <%=user.name %></p>
+                <p>Email: <%= user.email%></p>
+                <p>Role : <%=user.role%></p>
             </div>
 
             <!-- Second Column: Payment History -->
             <div class="dashboard-column">
                 <h2>Payment History</h2>
-                <ul>
-                    <li>September 2024 - $1200 - Paid</li>
-                    <li>August 2024 - $1200 - Paid</li>
-                    <li>July 2024 - $1200 - Paid</li>
-                </ul>
+                <% if (payments.length > 0) { %>
+                    <ul>
+                        <% payments.forEach(payment => { %>
+                            <li>
+                                <strong>Amount:</strong> $<%= payment.amount %> 
+                                <strong>Date:</strong> <%= new Date(payment.payment_date).toLocaleDateString() %>
+                            </li>
+                        <% }) %>
+                    </ul>
+                <% } else { %>
+                    <p>No payment history available</p>
+                <% } %>
             </div>
 
             <!-- Third Column: Mailbox Info -->
             <div class="dashboard-column">
                 <h2>Mailbox</h2>
-                <ul>
-                    <li>New message from landlord</li>
-                    <li>Maintenance request update</li>
-                </ul>
+                <% if (mailbox.length > 0) { %>
+                    <ul>
+                        <% mailbox.forEach(message => { %>
+                            <li>
+                                <strong>From:</strong> <%= message.sender_id === user.id ? 'You' : 'Landlord' %> <br>
+                                <strong>Subject:</strong> <%= message.subject %> <br>
+                                <strong>Date:</strong> <%= new Date(message.sent_at).toLocaleDateString() %> <br>
+                                <p><%= message.message_content.slice(0, 100) %>... <a href="#">Read More</a></p> <!-- Showing snippet of content -->
+                            </li>
+                        <% }) %>
+                    </ul>
+                <% } else { %>
+                    <p>No messages in the mailbox.</p>
+                <% } %>
             </div>
         </div>
 

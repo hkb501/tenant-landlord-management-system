@@ -104,14 +104,32 @@ app.get(
   async (req, res) => {
     try {
       const userId = req.user.id;
-      const user = await db.query("SELECT role FROM users WHERE id = $1 ", [
-        userId,
-      ]);
-      const userRole = user.rows[0].role;
-      if (userRole === "tenant") {
+      const userResult = await db.query(
+        "SELECT name, email, role FROM users WHERE id = $1",
+        [userId]
+      );
+      const userPayment = await db.query(
+        " SELECT amount, payment_date FROM user_payments WHERE user_id = $1 ORDER BY payment_date DESC",
+        [userId]
+      );
+      const payments = userPayment.rows;
+      const user = userResult.rows[0];
+
+      const mailboxQuery = `
+      SELECT sender_id, receiver_id, subject, message_content, sent_at 
+      FROM mailbox 
+      WHERE sender_id = $1 OR receiver_id = $1
+      ORDER BY sent_at DESC
+  `;
+      const mailboxResult = await db.query(mailboxQuery, [userId]);
+      const mailbox = mailboxResult.rows;
+      if (user.role === "tenant") {
         res.render("tenant-dashboard", {
           title: "Tenant Dashboard",
           cssFile: "tenant-dashboard.css",
+          user: user,
+          payments: payments,
+          mailbox: mailbox,
         });
       } else {
         res.render("/landlord-dashboard");

@@ -1,0 +1,29 @@
+<%- include('partials/header') %>
+<body>
+    <div class="mailbox-container">
+        <h2>Inbox</h2>
+
+        <!-- Compose New Message Button -->
+        <a href="/tenant-dashboard/mailbox/new" class="button">Compose New Message</a>
+
+        <!-- Display messages -->
+        <% if (mailbox.length > 0) { %>
+            <ul class="message-list">
+                <% mailbox.forEach(message => { if(message.sender_id != user.id){%>
+                    <li class="message-item">
+                        <p><strong>From:</strong> <%= message.sender_email%></p>
+                        <p><strong>Subject:</strong> <%= message.subject %></p>
+                        <p><strong>Date:</strong> <%= new Date(message.sent_at).toLocaleDateString() %></p>
+                        <p><strong>Message:</strong> <%= message.message_content.slice(0, 100) %>... <a href="#">Read More</a></p>
+                    </li>
+                <% }}) %>
+            </ul>
+        <% } else { %>
+            <p>No messages in your inbox.</p>
+        <% } %>
+    </div>
+    <footer>
+        <p>&copy; 2024 Property Management Services</p>
+    </footer>
+</body>
+</html>

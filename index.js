@@ -93,53 +93,172 @@ passport.serializeUser((user, done) => {
 });
 
 passport.deserializeUser(async (id, done) => {
-  const userQuery = "SELECT * FROM users WHERE id = $1";
-  const user = await db.query(userQuery, [id]);
-  done(null, user.rows[0]);
+  try {
+    const userQuery = "SELECT * FROM users WHERE id = $1";
+    const user = await db.query(userQuery, [id]);
+    done(null, user.rows[0]); // Attach user object to req.user
+  } catch (err) {
+    done(err, null);
+  }
 });
 // Routes
 app.get(
   "/auth/google/callback",
   passport.authenticate("google", { failureRedirect: "/resident-login" }),
   async (req, res) => {
-    try {
-      const userId = req.user.id;
-      const userResult = await db.query(
-        "SELECT name, email, role FROM users WHERE id = $1",
-        [userId]
-      );
-      const userPayment = await db.query(
-        " SELECT amount, payment_date FROM user_payments WHERE user_id = $1 ORDER BY payment_date DESC",
-        [userId]
-      );
-      const payments = userPayment.rows;
-      const user = userResult.rows[0];
-
-      const mailboxQuery = `
-      SELECT sender_id, receiver_id, subject, message_content, sent_at 
-      FROM mailbox 
-      WHERE sender_id = $1 OR receiver_id = $1
-      ORDER BY sent_at DESC
-  `;
-      const mailboxResult = await db.query(mailboxQuery, [userId]);
-      const mailbox = mailboxResult.rows;
-      if (user.role === "tenant") {
-        res.render("tenant-dashboard", {
-          title: "Tenant Dashboard",
-          cssFile: "tenant-dashboard.css",
-          user: user,
-          payments: payments,
-          mailbox: mailbox,
-        });
-      } else {
-        res.render("/landlord-dashboard");
-      }
-    } catch (err) {
-      console.error(err);
-      res.redirect("/resident-login");
+    if (req.user.role === "tenant") {
+      res.redirect("/tenant-dashboard"); // Redirect to the tenant dashboard route
+    } else {
+      res.redirect("/landlord-dashboard"); // Redirect to landlord dashboard if the user is a landlord
     }
+    //   try {
+    //     const userId = req.user.id;
+    //     const userResult = await db.query(
+    //       "SELECT name, email, role FROM users WHERE id = $1",
+    //       [userId]
+    //     );
+    //     const userPayment = await db.query(
+    //       " SELECT amount, payment_date FROM user_payments WHERE user_id = $1 ORDER BY payment_date DESC",
+    //       [userId]
+    //     );
+    //     const payments = userPayment.rows;
+    //     const user = userResult.rows[0];
+
+    //     const mailboxQuery = `
+    //     SELECT sender_id, receiver_id, subject, message_content, sent_at
+    //     FROM mailbox
+    //     WHERE sender_id = $1 OR receiver_id = $1
+    //     ORDER BY sent_at DESC
+    // `;
+    //     const mailboxResult = await db.query(mailboxQuery, [userId]);
+    //     const mailbox = mailboxResult.rows;
+    //     if (user.role === "tenant") {
+    //       res.render("tenant-dashboard", {
+    //         title: "Tenant Dashboard",
+    //         cssFile: "tenant-dashboard.css",
+    //         user: user,
+    //         payments: payments,
+    //         mailbox: mailbox,
+    //       });
+    //     } else {
+    //       res.render("/landlord-dashboard");
+    //     }
+    //   } catch (err) {
+    //     console.error(err);
+    //     res.redirect("/resident-login");
+    //   }
   }
 );
+
+app.get("/tenant-dashboard", async (req, res) => {
+  if (!req.isAuthenticated()) {
+    return res.redirect("/resident-login");
+  }
+
+  try {
+    const userId = req.user.id;
+    const userResult = await db.query(
+      "SELECT name, email, role FROM users WHERE id = $1",
+      [userId]
+    );
+    const user = userResult.rows[0];
+
+    // Fetch payments and messages as needed
+    const payments = await db.query(
+      "SELECT amount, payment_date FROM user_payments WHERE user_id = $1",
+      [userId]
+    );
+    const mailbox = await db.query(
+      "SELECT * FROM mailbox WHERE sender_id = $1 OR receiver_id = $1 ORDER BY sent_at DESC",
+      [userId]
+    );
+
+    res.render("tenant-dashboard", {
+      title: "Tenant Dashboard",
+      cssFile: "tenant-dashboard.css",
+      user: user,
+      payments: payments.rows,
+      mailbox: mailbox.rows,
+    });
+  } catch (err) {
+    console.error(err);
+    res.redirect("/resident-login");
+  }
+});
+
+// Mail box
+
+app.get("/tenant-dashboard/mailbox", async (req, res) => {
+  if (!req.isAuthenticated()) {
+    return res.redirect("/resident-login");
+  }
+
+  const userId = req.user.id;
+
+  // Fetch messages where the tenant is either sender or receiver
+  const mailboxQuery = `
+      SELECT m.sender_id, m.receiver_id, m.subject, m.message_content, m.sent_at, u.email AS sender_email 
+        FROM mailbox m
+        JOIN users u ON m.sender_id = u.id
+        WHERE m.sender_id = $1 OR m.receiver_id = $1
+        ORDER BY m.sent_at DESC
+  `;
+  const mailboxResult = await db.query(mailboxQuery, [userId]);
+  res.render("mailbox", {
+    title: "mailbox",
+    cssFile: "mailbox.css",
+    mailbox: mailboxResult.rows,
+    user: req.user,
+  });
+});
+
+// Composing a new message
+app.get("/tenant-dashboard/mailbox/new", (req, res) => {
+  if (!req.isAuthenticated()) {
+    return res.redirect("/resident-login");
+  }
+
+  // Render the compose message form
+  res.render("compose-message", {
+    title: "Compose New Message",
+    cssFile: "compose-message.css",
+    user: req.user, // Pass the logged-in user to the view
+  });
+});
+app.post("/tenant-dashboard/mailbox/send", async (req, res) => {
+  if (!req.isAuthenticated()) {
+    return res.redirect("/resident-login");
+  }
+
+  const { receiver_email, subject, message_content } = req.body;
+  try {
+    const receiverResult = await db.query(
+      "SELECT id FROM users WHERE email = $1",
+      [receiver_email]
+    );
+    if (receiverResult.rows.length === 0) {
+      return res.status(404).send("Error: Recipient email does not exist.");
+    }
+    const receiver_id = receiverResult.rows[0].id;
+    // Insert the new message into the mailbox table
+    const insertQuery = `
+          INSERT INTO mailbox (sender_id, receiver_id, subject, message_content, sent_at)
+          VALUES ($1, $2, $3, $4, NOW())
+      `;
+    await db.query(insertQuery, [
+      req.user.id,
+      receiver_id,
+      subject,
+      message_content,
+    ]);
+
+    // Redirect back to the mailbox after sending the message
+    res.redirect("/tenant-dashboard/mailbox");
+  } catch (err) {
+    console.error(err);
+    res.redirect("/tenant-dashboard/mailbox/new");
+  }
+});
 
 app.get("/", (req, res) => {
   res.render("home", { title: "home", cssFile: "styles.css" });

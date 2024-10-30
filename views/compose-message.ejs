@@ -2,7 +2,13 @@
 <body>
     <div class="compose-message-container">
         <h2>Compose New Message</h2>
-        
+<!-- if the user did not found in db -->
+        <% if (typeof error !== 'undefined') { %>
+            <div class="error-message">
+                <p><%= error %></p>
+            </div>
+        <% } %>
+
         <form action="/tenant-dashboard/mailbox/send" method="POST">
             <label for="receiver_id">To (Email):</label>
             <input type="email" id="receiver_email" name="receiver_email" required>

@@ -6,6 +6,7 @@ import passport from "passport"; // Make sure passport is imported
 import session from "express-session"; // Required for managing sessions
 import { Strategy as GoogleStrategy } from "passport-google-oauth20";
 import nodemailer from "nodemailer";
+import axios from "axios";
 
 const app = express();
 const port = 3000;
@@ -111,42 +112,6 @@ app.get(
     } else {
       res.redirect("/landlord-dashboard"); // Redirect to landlord dashboard if the user is a landlord
     }
-    //   try {
-    //     const userId = req.user.id;
-    //     const userResult = await db.query(
-    //       "SELECT name, email, role FROM users WHERE id = $1",
-    //       [userId]
-    //     );
-    //     const userPayment = await db.query(
-    //       " SELECT amount, payment_date FROM user_payments WHERE user_id = $1 ORDER BY payment_date DESC",
-    //       [userId]
-    //     );
-    //     const payments = userPayment.rows;
-    //     const user = userResult.rows[0];
-
-    //     const mailboxQuery = `
-    //     SELECT sender_id, receiver_id, subject, message_content, sent_at
-    //     FROM mailbox
-    //     WHERE sender_id = $1 OR receiver_id = $1
-    //     ORDER BY sent_at DESC
-    // `;
-    //     const mailboxResult = await db.query(mailboxQuery, [userId]);
-    //     const mailbox = mailboxResult.rows;
-    //     if (user.role === "tenant") {
-    //       res.render("tenant-dashboard", {
-    //         title: "Tenant Dashboard",
-    //         cssFile: "tenant-dashboard.css",
-    //         user: user,
-    //         payments: payments,
-    //         mailbox: mailbox,
-    //       });
-    //     } else {
-    //       res.render("/landlord-dashboard");
-    //     }
-    //   } catch (err) {
-    //     console.error(err);
-    //     res.redirect("/resident-login");
-    //   }
   }
 );
 
@@ -163,21 +128,31 @@ app.get("/tenant-dashboard", async (req, res) => {
     );
     const user = userResult.rows[0];
 
-    // Fetch payments and messages as needed
-    const payments = await db.query(
-      "SELECT amount, payment_date FROM user_payments WHERE user_id = $1",
-      [userId]
-    );
+    // Fetch messages from the mailbox
     const mailbox = await db.query(
       "SELECT * FROM mailbox WHERE sender_id = $1 OR receiver_id = $1 ORDER BY sent_at DESC",
       [userId]
     );
 
+    // Fetch payment history from the external API
+    const paymentResponse = await axios.get(
+      "http://localhost:5100/api/v1/payment/card"
+    );
+    let payments = paymentResponse.data.success
+      ? paymentResponse.data.data.data
+      : [];
+
+    // Add payment_date to each payment record
+    payments = payments.map((payment) => ({
+      ...payment,
+      payment_date: new Date().toLocaleDateString(), // Or use a specific date if needed
+    }));
+
     res.render("tenant-dashboard", {
       title: "Tenant Dashboard",
       cssFile: "tenant-dashboard.css",
       user: user,
-      payments: payments.rows,
+      payments: payments,
       mailbox: mailbox.rows,
     });
   } catch (err) {
@@ -237,7 +212,11 @@ app.post("/tenant-dashboard/mailbox/send", async (req, res) => {
       [receiver_email]
     );
     if (receiverResult.rows.length === 0) {
-      return res.status(404).send("Error: Recipient email does not exist.");
+      return res.render("compose-message", {
+        title: "Compose New Message",
+        cssFile: "compose-message.css",
+        error: "The specified email does not exist in our database.",
+      });
     }
     const receiver_id = receiverResult.rows[0].id;
     // Insert the new message into the mailbox table
@@ -260,6 +239,63 @@ app.post("/tenant-dashboard/mailbox/send", async (req, res) => {
   }
 });
 
+// Rent payment gateway
+app.get("/tenant-dashboard/pay-rent", (req, res) => {
+  res.render("create-payment-intent", {
+    title: "Payment gateway",
+    cssFile: "pay-rent.css",
+    user: req.user, // Pass the logged-in user to the view
+  });
+});
+
+// Handling the payment
+app.post("/tenant-dashboard/pay-rent", async (req, res) => {
+  const {
+    amount,
+    card_type,
+    card_holder_name,
+    card_number,
+    expiryMonth,
+    expiryYear,
+    cvv,
+    currency = "CAD", // default to CAD if not specified
+  } = req.body;
+
+  const paymentData = {
+    app_name: "Tenant Payment App",
+    service: "Rent Payment",
+    customer_email: req.user.email, // get email from logged-in user
+    card_type,
+    card_holder_name,
+    card_number,
+    expiryMonth,
+    expiryYear,
+    cvv,
+    amount,
+    currency,
+  };
+
+  try {
+    // Send paymentData to the fake payment API
+    const response = await fetch("http://localhost:5100/api/v1/payment/card", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(paymentData),
+    });
+
+    if (!response.ok) throw new Error("Payment failed");
+
+    const responseData = await response.json();
+
+    // Redirect back to the tenant dashboard on success
+    res.redirect("/tenant-dashboard");
+  } catch (error) {
+    console.error("Error processing payment:", error);
+    res.status(500).send("Payment processing error");
+  }
+});
+
+// Home page
 app.get("/", (req, res) => {
   res.render("home", { title: "home", cssFile: "styles.css" });
 });

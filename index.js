@@ -115,6 +115,7 @@ app.get(
   }
 );
 
+// Dashboard of the tenant info
 app.get("/tenant-dashboard", async (req, res) => {
   if (!req.isAuthenticated()) {
     return res.redirect("/resident-login");
@@ -123,7 +124,7 @@ app.get("/tenant-dashboard", async (req, res) => {
   try {
     const userId = req.user.id;
     const userResult = await db.query(
-      "SELECT name, email, role FROM users WHERE id = $1",
+      "SELECT name, email, role, created_at FROM users WHERE id = $1",
       [userId]
     );
     const user = userResult.rows[0];
@@ -158,6 +159,52 @@ app.get("/tenant-dashboard", async (req, res) => {
   } catch (err) {
     console.error(err);
     res.redirect("/resident-login");
+  }
+});
+
+// Manage tenant dashboard information
+app.get("/tenant-dashboard/profile", async (req, res) => {
+  if (!req.isAuthenticated()) {
+    return res.redirect("/resident-login");
+  }
+  const userId = req.user.id;
+
+  // fetch the user information from the users table
+  const userQuery =
+    "SELECT name, email, role, created_at FROM users WHERE id = $1";
+  const userResult = await db.query(userQuery, [userId]);
+  const userInfo = userResult.rows[0]; // Get the first row of the result
+
+  res.render("profile", {
+    title: "User Profile",
+    cssFile: "profile.css",
+    userInfo: userInfo, // Pass the userInfo object directly
+  });
+});
+
+// Inserting new information
+app.post("/tenant-dashboard/profile/update", async (req, res) => {
+  if (!req.isAuthenticated()) {
+    return res.redirect("/resident-login");
+  }
+
+  const { name, role } = req.body;
+  const userId = req.user.id;
+
+  try {
+    const updateQuery = `
+      UPDATE users 
+      SET name = $1, role = $2
+      WHERE id = $3
+      RETURNING *;
+    `;
+    const result = await db.query(updateQuery, [name, role, userId]);
+    req.user = result.rows[0]; // Update session user data
+
+    res.redirect("/tenant-dashboard");
+  } catch (error) {
+    console.error("Error updating profile:", error);
+    res.status(500).send("Server error");
   }
 });
 

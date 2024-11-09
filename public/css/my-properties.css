@@ -1,0 +1,30 @@
+body {
+    background-color: #121212; /* Black background */
+    color: whitesmoke; /* Light text color */
+    font-family: Arial, sans-serif;
+}
+
+.my-properties-container {
+    padding: 20px;
+}
+
+.properties-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr); /* 3 columns */
+    gap: 20px;
+}
+
+.property-card {
+    background-color: #1a1a1a; /* Dark card background */
+    padding: 15px;
+    border-radius: 8px;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.3);
+    text-align: center;
+}
+
+.property-card img {
+    width: 100%;
+    height: auto;
+    border-radius: 5px;
+    margin-top: 10px;
+}

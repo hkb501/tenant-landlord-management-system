@@ -7,10 +7,14 @@ import session from "express-session"; // Required for managing sessions
 import { Strategy as GoogleStrategy } from "passport-google-oauth20";
 import nodemailer from "nodemailer";
 import axios from "axios";
+import multer from "multer";
+import path from "path";
 
 const app = express();
 const port = 3000;
 env.config(); // Can access to variables via process.env
+const storage = multer.memoryStorage();
+const upload = multer({ storage: storage });
 
 app.use(bodyParser.urlencoded({ extended: true }));
 app.use(express.static("public"));
@@ -201,7 +205,11 @@ app.post("/tenant-dashboard/profile/update", async (req, res) => {
     const result = await db.query(updateQuery, [name, role, userId]);
     req.user = result.rows[0]; // Update session user data
 
-    res.redirect("/tenant-dashboard");
+    if (role == "landlord") {
+      res.redirect("/landlord-dashboard");
+    } else {
+      res.redirect("/tenant-dashboard");
+    }
   } catch (error) {
     console.error("Error updating profile:", error);
     res.status(500).send("Server error");
@@ -339,6 +347,331 @@ app.post("/tenant-dashboard/pay-rent", async (req, res) => {
   } catch (error) {
     console.error("Error processing payment:", error);
     res.status(500).send("Payment processing error");
+  }
+});
+
+// landlord dashboard route
+app.get("/landlord-dashboard", async (req, res) => {
+  if (!req.isAuthenticated() || req.user.role !== "landlord") {
+    return res.redirect("/resident-login");
+  }
+
+  const landlordId = req.user.id;
+
+  try {
+    // Fetch tenants associated with this landlord
+    const tenants = await db.query(
+      `SELECT u.name, u.email
+       FROM users u
+       JOIN tenant_landlord tl ON u.id = tl.tenant_id
+       WHERE tl.landlord_id = $1`,
+      [landlordId]
+    );
+    const tenantEmails = tenants.rows.map((tenant) => tenant.email);
+
+    const paymentResponse = await axios.get(
+      "http://localhost:5100/api/v1/payment/card"
+    );
+    let payments = paymentResponse.data.success
+      ? paymentResponse.data.data.data
+      : [];
+
+    // Add payment_date to each payment record
+    payments = payments.map((payment) => ({
+      ...payment,
+      payment_date: new Date().toLocaleDateString(), // Or a specific date if available
+      customer_email: payment.customer_email, // Ensure this field is provided by the API
+    }));
+
+    // Fetch mailbox messages related to the landlord
+    const mailboxQuery = `
+      SELECT m.sender_id, m.receiver_id, m.subject, m.message_content, m.sent_at, u.email AS sender_email 
+      FROM mailbox m
+      JOIN users u ON m.sender_id = u.id
+      WHERE m.sender_id = $1 OR m.receiver_id = $1
+      ORDER BY m.sent_at DESC
+    `;
+    const mailboxResult = await db.query(mailboxQuery, [landlordId]);
+
+    res.render("landlord-dashboard", {
+      title: "Landlord Dashboard",
+      cssFile: "landlord-dashboard.css",
+      tenants: tenants.rows,
+      payments: payments, // Pass filtered payment data to the template
+      mailbox: mailboxResult.rows,
+      user: req.user,
+    });
+  } catch (err) {
+    console.error(err);
+    res.redirect("/resident-login");
+  }
+});
+// add tenats to a landlord
+
+app.get("/landlord-dashboard/add-tenant", (req, res) => {
+  if (!req.isAuthenticated() || req.user.role !== "landlord") {
+    return res.redirect("/resident-login");
+  }
+  res.render("add-tenant", {
+    title: "Add Tenant",
+    cssFile: "add-tenant.css",
+    error: null, // Pass error as null initially
+  });
+});
+
+// Adding tenant for the landlord
+app.post("/landlord-dashboard/add-tenant", async (req, res) => {
+  if (!req.isAuthenticated() || req.user.role !== "landlord") {
+    return res.redirect("/resident-login");
+  }
+
+  const landlordId = req.user.id;
+  const { tenantEmail } = req.body;
+
+  try {
+    // Check if tenant exists
+    const tenantResult = await db.query(
+      "SELECT id FROM users WHERE email = $1 AND role = 'tenant'",
+      [tenantEmail]
+    );
+    if (tenantResult.rows.length === 0) {
+      return res.render("add-tenant", {
+        error: "Tenant not found.",
+        title: "Add Tenant",
+        cssFile: "add-tenant.css", // Ensure you have a CSS file named accordingly
+      });
+    }
+
+    const tenantId = tenantResult.rows[0].id;
+
+    // Insert into tenant_landlord table
+    await db.query(
+      "INSERT INTO tenant_landlord (landlord_id, tenant_id) VALUES ($1, $2) ON CONFLICT DO NOTHING",
+      [landlordId, tenantId]
+    );
+
+    res.redirect("/landlord-dashboard"); // Redirect back to the landlord dashboard or show success message
+  } catch (err) {
+    console.error(err);
+    res.render("add-tenant", {
+      error: "Tenant not found.",
+      title: "Add Tenant",
+      cssFile: "add-tenant.css", // Ensure you have a CSS file named accordingly
+    });
+  }
+});
+
+// GET route for displaying the landlord profile
+app.get("/landlord-dashboard/profile", async (req, res) => {
+  if (!req.isAuthenticated() || req.user.role !== "landlord") {
+    return res.redirect("/resident-login");
+  }
+
+  try {
+    const landlordId = req.user.id;
+    const userQuery =
+      "SELECT name, email, role, created_at FROM users WHERE id = $1";
+    const userInfo = await db.query(userQuery, [landlordId]);
+
+    res.render("landlord-profile", {
+      title: "Landlord Profile Management",
+      cssFile: "landlord-profile.css",
+      user: userInfo.rows[0],
+      error: null,
+    });
+  } catch (err) {
+    console.error("Error fetching landlord profile:", err);
+    res.redirect("/landlord-dashboard");
+  }
+});
+
+// POST route for updating the landlord profile
+app.post("/landlord-dashboard/profile/update", async (req, res) => {
+  if (!req.isAuthenticated() || req.user.role !== "landlord") {
+    return res.redirect("/resident-login");
+  }
+
+  const landlordId = req.user.id;
+  const { name, role } = req.body;
+
+  try {
+    const updateQuery = "UPDATE users SET name = $1, role = $2 WHERE id = $3";
+    await db.query(updateQuery, [name, role, landlordId]);
+
+    res.redirect("/landlord-dashboard");
+  } catch (err) {
+    console.error("Error updating landlord profile:", err);
+    res.render("landlord-profile", {
+      title: "Landlord Profile Management",
+      cssFile: "landlord-profile.css",
+      user: req.user,
+      error: "An error occurred while updating the profile. Please try again.",
+    });
+  }
+});
+
+// GET route for displaying the Add Property page
+app.get("/landlord-dashboard/add-property", async (req, res) => {
+  if (!req.isAuthenticated() || req.user.role !== "landlord") {
+    return res.redirect("/resident-login");
+  }
+
+  res.render("add-property", {
+    title: "Add Property",
+    cssFile: "add-property.css",
+    user: req.user,
+    error: null,
+  });
+});
+
+// POST route for adding a new property
+// Route to handle property addition with image upload
+app.post(
+  "/landlord-dashboard/add-property",
+  upload.single("propertyImage"),
+  async (req, res) => {
+    const { address, price, bedrooms, bathrooms } = req.body;
+    const imageBuffer = req.file ? req.file.buffer : null;
+
+    try {
+      await db.query(
+        "INSERT INTO properties (landlord_id, address, price, bedrooms, bathrooms, image, created_at) VALUES ($1, $2, $3, $4, $5, $6, NOW())",
+        [req.user.id, address, price, bedrooms, bathrooms, imageBuffer]
+      );
+      res.redirect("/landlord-dashboard");
+    } catch (err) {
+      console.error("Error adding property:", err);
+      res.status(500).send("Server error");
+    }
+  }
+);
+
+// My property tab
+app.get("/landlord-dashboard/my-properties", async (req, res) => {
+  if (!req.isAuthenticated() || req.user.role !== "landlord") {
+    return res.redirect("/resident-login");
+  }
+
+  try {
+    const landlordId = req.user.id;
+    const propertiesResult = await db.query(
+      `SELECT address, price, bedrooms, bathrooms, created_at,image FROM properties WHERE landlord_id = $1`,
+      [landlordId]
+    );
+
+    res.render("my-properties", {
+      title: "My Properties",
+      cssFile: "my-properties.css",
+      properties: propertiesResult.rows,
+      user: req.user,
+    });
+  } catch (err) {
+    console.error(err);
+    res.redirect("/landlord-dashboard");
+  }
+});
+// Mail box for the landlord
+app.get("/landlord-dashboard/mailbox", async (req, res) => {
+  if (!req.isAuthenticated() || req.user.role !== "landlord") {
+    return res.redirect("/resident-login");
+  }
+
+  const userId = req.user.id;
+
+  // Fetch messages where the landlord is either sender or receiver
+  const mailboxQuery = `
+      SELECT m.sender_id, m.receiver_id, m.subject, m.message_content, m.sent_at, u.email AS sender_email 
+      FROM mailbox m
+      JOIN users u ON m.sender_id = u.id
+      WHERE m.sender_id = $1 OR m.receiver_id = $1
+      ORDER BY m.sent_at DESC
+  `;
+  try {
+    const mailboxResult = await db.query(mailboxQuery, [userId]);
+    res.render("mailbox", {
+      title: "Landlord Mailbox",
+      cssFile: "mailbox.css",
+      mailbox: mailboxResult.rows,
+      user: req.user,
+    });
+  } catch (err) {
+    console.error("Error fetching mailbox:", err);
+    res.redirect("/landlord-dashboard");
+  }
+});
+// Composing new email for the landlord
+app.get("/landlord-dashboard/mailbox/new", async (req, res) => {
+  if (!req.isAuthenticated() || req.user.role !== "landlord") {
+    return res.redirect("/resident-login");
+  }
+
+  try {
+    // Fetch tenants related to the landlord
+    const landlordId = req.user.id;
+    const tenantsResult = await db.query(
+      `SELECT u.id, u.name, u.email 
+       FROM users u
+       JOIN tenant_landlord tl ON u.id = tl.tenant_id
+       WHERE tl.landlord_id = $1`,
+      [landlordId]
+    );
+
+    res.render("compose-message-landlord", {
+      title: "Compose Message",
+      cssFile: "compose-message-landlord.css",
+      user: req.user,
+      tenants: tenantsResult.rows,
+    });
+  } catch (err) {
+    console.error("Error fetching tenants:", err);
+    res.redirect("/landlord-dashboard");
+  }
+});
+// Landlord email sending
+app.post("/landlord-dashboard/mailbox/send", async (req, res) => {
+  if (!req.isAuthenticated() || req.user.role !== "landlord") {
+    return res.redirect("/resident-login");
+  }
+
+  const { recipient, subject, message_content } = req.body;
+  const senderId = req.user.id;
+
+  try {
+    if (recipient.includes("all")) {
+      // Fetch all tenant IDs associated with the landlord
+      const tenantIdsResult = await db.query(
+        `SELECT tenant_id FROM tenant_landlord WHERE landlord_id = $1`,
+        [senderId]
+      );
+
+      for (const row of tenantIdsResult.rows) {
+        await db.query(
+          `INSERT INTO mailbox (sender_id, receiver_id, subject, message_content, sent_at)
+           VALUES ($1, $2, $3, $4, NOW())`,
+          [senderId, row.tenant_id, subject, message_content]
+        );
+      }
+    } else {
+      // Send to selected tenants
+      for (const tenantId of recipient) {
+        await db.query(
+          `INSERT INTO mailbox (sender_id, receiver_id, subject, message_content, sent_at)
+           VALUES ($1, $2, $3, $4, NOW())`,
+          [senderId, tenantId, subject, message_content]
+        );
+      }
+    }
+
+    res.redirect("/landlord-dashboard/mailbox");
+  } catch (err) {
+    console.error("Error sending message:", err);
+    res.render("compose-message", {
+      title: "Compose Message",
+      cssFile: "compose-message.css",
+      user: req.user,
+      tenants: [], // or fetch tenants again if needed
+      error: "Error sending message. Please try again.",
+    });
   }
 });
 

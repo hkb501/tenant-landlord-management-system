@@ -1,0 +1,31 @@
+<%- include('partials/header') %>
+<body style="background-color: #121212; color: whitesmoke;">
+    <div class="my-properties-container">
+        <h2>My Properties</h2>
+        <% if (properties.length > 0) { %>
+            <div class="properties-grid">
+                <% properties.forEach((property, index) => { %>
+                    <div class="property-card">
+                        <h3>Property <%= index + 1 %></h3>
+                        <p><strong>Address:</strong> <%= property.address %></p>
+                        <p><strong>Price:</strong> $<%= property.price %></p>
+                        <p><strong>Bedrooms:</strong> <%= property.bedrooms %></p>
+                        <p><strong>Bathrooms:</strong> <%= property.bathrooms %></p>
+                        <% if (property.image) { %>
+                            <img src="data:image/jpeg;base64,<%= property.image.toString('base64') %>" alt="Property Image" class="property-image" />
+                        <% } else { %>
+                            <p>No image available</p>
+                        <% } %>
+                    </div>
+                <% }) %>
+            </div>
+        <% } else { %>
+            <p>No properties posted yet.</p>
+        <% } %>
+    </div>
+
+    <footer>
+        <p>&copy; 2024 Property Management Services</p>
+    </footer>
+</body>
+</html>

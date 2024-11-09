@@ -3,8 +3,14 @@
     <div class="mailbox-container">
         <h2>Inbox</h2>
 
-        <!-- Compose New Message Button -->
-        <a href="/tenant-dashboard/mailbox/new" class="button">Compose New Message</a>
+
+         <!-- Compose New Message Button based on user role -->
+         <% if (user.role === 'tenant') { %>
+            <a href="/tenant-dashboard/mailbox/new" class="button">Compose New Message</a>
+        <% } else if (user.role === 'landlord') { %>
+            <a href="/landlord-dashboard/mailbox/new" class="button">Compose New Message</a>
+        <% } %>
+
 
         <!-- Display messages -->
         <% if (mailbox.length > 0) { %>

@@ -1,0 +1,29 @@
+<%- include('partials/header') %>
+<body>
+    <div class="compose-message-container">
+        <h2>Compose New Message</h2>
+
+        <form action="/landlord-dashboard/mailbox/send" method="POST">
+            <label for="recipient">Select Tenant(s):</label>
+            <select id="recipient" name="recipient[]" multiple required>
+                <option value="all">All Tenants</option>
+                <% tenants.forEach(tenant => { %>
+                    <option value="<%= tenant.id %>"><%= tenant.name %> (<%= tenant.email %>)</option>
+                <% }) %>
+            </select>
+
+            <label for="subject">Subject:</label>
+            <input type="text" id="subject" name="subject" required>
+
+            <label for="message_content">Message:</label>
+            <textarea id="message_content" name="message_content" rows="5" required></textarea>
+
+            <button type="submit">Send Message</button>
+        </form>
+    </div>
+
+    <footer>
+        <p>&copy; 2024 Property Management Services</p>
+    </footer>
+</body>
+</html>

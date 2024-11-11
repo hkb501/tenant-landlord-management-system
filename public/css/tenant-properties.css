@@ -1,0 +1,40 @@
+.properties-container {
+    padding: 20px;
+    background-color: #121212;
+    color: whitesmoke;
+  }
+  
+  .properties-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 20px;
+  }
+  
+  .property-card {
+    background-color: #1a1a1a;
+    padding: 15px;
+    border-radius: 10px;
+    text-align: center;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.3);
+  }
+  
+  .property-card img {
+    width: 100%;
+    height: auto;
+    border-radius: 5px;
+    margin-bottom: 10px;
+  }
+  
+  .button {
+    padding: 10px;
+    background-color: #c61111;
+    color: whitesmoke;
+    border: none;
+    border-radius: 5px;
+    cursor: pointer;
+  }
+  
+  .button:hover {
+    background-color: #a50d0d;
+  }
+  

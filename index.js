@@ -350,6 +350,149 @@ app.post("/tenant-dashboard/pay-rent", async (req, res) => {
   }
 });
 
+app.get("/tenant-dashboard/properties", async (req, res) => {
+  if (!req.isAuthenticated()) {
+    return res.redirect("/resident-login");
+  }
+
+  try {
+    const propertiesResult = await db.query(
+      "SELECT * FROM properties ORDER BY created_at DESC"
+    );
+    res.render("tenant-properties", {
+      title: "Available Properties",
+      cssFile: "tenant-properties.css",
+      properties: propertiesResult.rows,
+      user: req.user,
+    });
+  } catch (err) {
+    console.error(err);
+    res.redirect("/tenant-dashboard");
+  }
+});
+
+// Route for displaying the application form for a specific property
+app.get("/properties/:property_id/apply", async (req, res) => {
+  if (!req.isAuthenticated()) {
+    return res.redirect("/resident-login");
+  }
+
+  const propertyId = req.params.property_id;
+
+  try {
+    // Fetch property details for display on the application page (optional)
+    const propertyResult = await db.query(
+      "SELECT * FROM properties WHERE id = $1",
+      [propertyId]
+    );
+
+    if (propertyResult.rows.length === 0) {
+      return res.status(404).send("Property not found.");
+    }
+
+    const property = propertyResult.rows[0];
+    res.render("tenant-application", {
+      title: "Apply for Property",
+      cssFile: "tenant-applications.css",
+      property: property,
+      user: req.user, // Pass logged-in user details if needed
+    });
+  } catch (err) {
+    console.error("Error loading application form:", err);
+    res.status(500).send("Server error.");
+  }
+});
+// Submitting the apllication form
+app.post("/tenant-dashboard/submit-application", async (req, res) => {
+  if (!req.isAuthenticated()) {
+    return res.redirect("/resident-login");
+  }
+
+  const {
+    property_id,
+    full_name,
+    contact_number,
+    email,
+    employer_name,
+    job_title,
+    monthly_income,
+    length_of_stay,
+    number_of_occupants,
+    pets,
+    emergency_contact,
+    emergency_contact_number,
+  } = req.body;
+
+  const tenantId = req.user.id;
+  const applicationDate = new Date();
+  const status = "Pending"; // Default status for new applications
+
+  try {
+    const query = `
+      INSERT INTO property_applications (
+        property_id, tenant_id, full_name, contact_number, email,
+        employer_name, job_title, monthly_income, length_of_stay,
+        number_of_occupants, pets, emergency_contact, emergency_contact_number,
+        application_date, status
+      ) VALUES (
+        $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15
+      )
+    `;
+    await db.query(query, [
+      property_id,
+      tenantId,
+      full_name,
+      contact_number,
+      email,
+      employer_name,
+      job_title,
+      monthly_income,
+      length_of_stay,
+      number_of_occupants,
+      pets,
+      emergency_contact,
+      emergency_contact_number,
+      applicationDate,
+      status,
+    ]);
+
+    res.redirect("/tenant-dashboard"); // Redirect back to the tenant dashboard after successful submission
+  } catch (err) {
+    console.error("Error submitting application:", err);
+    res.status(500).send("Error submitting application");
+  }
+});
+
+// Applications tenant submitted
+app.get("/tenant-dashboard/my-applications", async (req, res) => {
+  if (!req.isAuthenticated()) {
+    return res.redirect("/resident-login");
+  }
+
+  const tenantId = req.user.id;
+
+  try {
+    const query = `
+      SELECT pa.property_id, p.address, pa.application_date, pa.status, pa.full_name, pa.contact_number
+      FROM property_applications pa
+      JOIN properties p ON pa.property_id = p.id
+      WHERE pa.tenant_id = $1
+      ORDER BY pa.application_date DESC
+    `;
+    const applications = await db.query(query, [tenantId]);
+
+    res.render("my-applications", {
+      title: "My Applications",
+      cssFile: "my-applications.css",
+      applications: applications.rows,
+      user: req.user,
+    });
+  } catch (err) {
+    console.error("Error fetching applications:", err);
+    res.status(500).send("Error fetching applications");
+  }
+});
+
 // landlord dashboard route
 app.get("/landlord-dashboard", async (req, res) => {
   if (!req.isAuthenticated() || req.user.role !== "landlord") {
@@ -672,6 +815,58 @@ app.post("/landlord-dashboard/mailbox/send", async (req, res) => {
       tenants: [], // or fetch tenants again if needed
       error: "Error sending message. Please try again.",
     });
+  }
+});
+
+app.get("/landlord-dashboard/applications", async (req, res) => {
+  if (!req.isAuthenticated() || req.user.role !== "landlord") {
+    return res.redirect("/resident-login");
+  }
+
+  const landlordId = req.user.id;
+
+  try {
+    const applicationsQuery = `
+      SELECT pa.application_id, pa.property_id, pa.full_name, pa.contact_number, pa.email, pa.employer_name, pa.job_title,
+             pa.monthly_income, pa.length_of_stay, pa.number_of_occupants, pa.pets, pa.emergency_contact, pa.emergency_contact_number,
+             pa.application_date, pa.status, p.address
+      FROM property_applications pa
+      JOIN properties p ON pa.property_id = p.id
+      WHERE p.landlord_id = $1
+      ORDER BY pa.application_date DESC
+    `;
+    const applications = await db.query(applicationsQuery, [landlordId]);
+
+    res.render("applications", {
+      title: "Rental Applications",
+      cssFile: "applications.css",
+      applications: applications.rows,
+      user: req.user,
+    });
+  } catch (err) {
+    console.error("Error fetching applications:", err);
+    res.status(500).send("Error fetching applications");
+  }
+});
+
+app.post("/landlord-dashboard/applications/decision", async (req, res) => {
+  if (!req.isAuthenticated() || req.user.role !== "landlord") {
+    return res.redirect("/resident-login");
+  }
+
+  const { application_id, decision } = req.body;
+  const status = decision === "approved" ? "Approved" : "Rejected";
+
+  try {
+    await db.query(
+      "UPDATE property_applications SET status = $1 WHERE application_id = $2",
+      [status, application_id]
+    );
+
+    res.redirect("/landlord-dashboard/applications");
+  } catch (err) {
+    console.error("Error updating application status:", err);
+    res.status(500).send("Error updating application status");
   }
 });
 

@@ -1,0 +1,21 @@
+.applications-container {
+    padding: 20px;
+    background-color: #1a1a1a;
+    color: whitesmoke;
+  }
+  
+  .application-item {
+    background-color: #333;
+    padding: 15px;
+    margin-bottom: 15px;
+    border-radius: 5px;
+  }
+  
+  .application-item h3 {
+    color: #c61111;
+  }
+  
+  .application-item .button {
+    margin-right: 10px;
+  }
+  

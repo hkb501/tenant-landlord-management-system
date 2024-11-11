@@ -1,0 +1,25 @@
+.applications-container {
+    padding: 20px;
+    background-color: #1a1a1a;
+    color: whitesmoke;
+  }
+  
+  .application-item {
+    background-color: #333;
+    padding: 15px;
+    margin-bottom: 15px;
+    border-radius: 5px;
+  }
+  
+  .application-item h3 {
+    color: #c61111;
+  }
+  
+  footer {
+    text-align: center;
+    padding: 20px;
+    background-color: #1a1a1a;
+    color: whitesmoke;
+    border-radius: 8px;
+    margin-top: 20px;
+  }

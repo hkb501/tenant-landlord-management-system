@@ -15,7 +15,6 @@ const port = 3000;
 env.config(); // Can access to variables via process.env
 const storage = multer.memoryStorage();
 const upload = multer({ storage: storage });
-
 app.use(bodyParser.urlencoded({ extended: true }));
 app.use(express.static("public"));
 app.set("view engine", "ejs");
@@ -106,6 +105,30 @@ passport.deserializeUser(async (id, done) => {
     done(err, null);
   }
 });
+// Fetching the properties for the main page
+app.get("/properties", async (req, res) => {
+  try {
+    const properties = await db.query(`
+      SELECT id, address, price, bedrooms, bathrooms, image 
+      FROM properties 
+      LIMIT 6
+    `);
+
+    // Convert image to base64 if necessary, or use as is if it's a URL
+    const propertiesWithImage = properties.rows.map((property) => ({
+      ...property,
+      image: property.image
+        ? `data:image/jpeg;base64,${property.image.toString("base64")}`
+        : "path/to/placeholder-image.jpg",
+    }));
+
+    res.json(propertiesWithImage);
+  } catch (err) {
+    console.error("Server error:", err.message);
+    res.status(500).json({ error: "Server error" });
+  }
+});
+
 // Routes
 app.get(
   "/auth/google/callback",
@@ -671,15 +694,19 @@ app.get("/landlord-dashboard/add-property", async (req, res) => {
 // Route to handle property addition with image upload
 app.post(
   "/landlord-dashboard/add-property",
-  upload.single("propertyImage"),
+  upload.array("propertyImages", 5), // Accept up to 5 images
   async (req, res) => {
     const { address, price, bedrooms, bathrooms } = req.body;
-    const imageBuffer = req.file ? req.file.buffer : null;
+    const imageBuffers = req.files.map((file) => file.buffer);
+    const base64Images = imageBuffers.map((buffer) =>
+      buffer.toString("base64")
+    );
+    const imagesJSON = JSON.stringify(base64Images); // Convert to JSON array
 
     try {
       await db.query(
-        "INSERT INTO properties (landlord_id, address, price, bedrooms, bathrooms, image, created_at) VALUES ($1, $2, $3, $4, $5, $6, NOW())",
-        [req.user.id, address, price, bedrooms, bathrooms, imageBuffer]
+        "INSERT INTO properties (landlord_id, address, price, bedrooms, bathrooms, images, created_at) VALUES ($1, $2, $3, $4, $5, $6, NOW())",
+        [req.user.id, address, price, bedrooms, bathrooms, imagesJSON]
       );
       res.redirect("/landlord-dashboard");
     } catch (err) {
@@ -698,19 +725,56 @@ app.get("/landlord-dashboard/my-properties", async (req, res) => {
   try {
     const landlordId = req.user.id;
     const propertiesResult = await db.query(
-      `SELECT address, price, bedrooms, bathrooms, created_at,image FROM properties WHERE landlord_id = $1`,
+      `SELECT id, address, price, bedrooms, bathrooms, created_at, images FROM properties WHERE landlord_id = $1`,
       [landlordId]
     );
+
+    const properties = propertiesResult.rows.map((property) => {
+      if (property.images) {
+        try {
+          // Ensure property.images is an array of base64 strings
+          property.images = JSON.parse(property.images);
+        } catch (err) {
+          console.error("Error parsing images:", err);
+          property.images = []; // Fallback to empty array if parsing fails
+        }
+      } else {
+        property.images = [];
+      }
+      return property;
+    });
 
     res.render("my-properties", {
       title: "My Properties",
       cssFile: "my-properties.css",
-      properties: propertiesResult.rows,
+      properties: properties,
       user: req.user,
     });
   } catch (err) {
     console.error(err);
     res.redirect("/landlord-dashboard");
+  }
+});
+
+// Deleting a property
+app.post("/landlord-dashboard/delete-property", async (req, res) => {
+  if (!req.isAuthenticated() || req.user.role !== "landlord") {
+    return res.redirect("/resident-login");
+  }
+
+  const propertyId = req.body.propertyId;
+
+  try {
+    // Delete the property record from the database
+    await db.query(
+      `DELETE FROM properties WHERE id = $1 AND landlord_id = $2`,
+      [propertyId, req.user.id]
+    );
+
+    res.redirect("/landlord-dashboard/my-properties");
+  } catch (err) {
+    console.error("Error deleting property:", err);
+    res.status(500).send("Error deleting property");
   }
 });
 // Mail box for the landlord
@@ -856,17 +920,44 @@ app.post("/landlord-dashboard/applications/decision", async (req, res) => {
 
   const { application_id, decision } = req.body;
   const status = decision === "approved" ? "Approved" : "Rejected";
+  const messageContent =
+    decision === "approved"
+      ? "Congratulations! Your application has been approved."
+      : "Unfortunately, your application has been rejected.";
 
   try {
+    // Update the application status
     await db.query(
       "UPDATE property_applications SET status = $1 WHERE application_id = $2",
       [status, application_id]
     );
 
+    // Retrieve the applicant's email
+    const result = await db.query(
+      "SELECT u.id FROM users u JOIN property_applications pa ON u.id = pa.tenant_id WHERE pa.application_id = $1",
+      [application_id]
+    );
+
+    const applicantId = result.rows[0].id;
+
+    if (applicantId) {
+      // Create and send a message to the applicant's mailbox
+      await db.query(
+        "INSERT INTO mailbox (receiver_id, subject, message_content, sent_at) VALUES ($1, $2, $3, NOW())",
+        [applicantId, "Application Status Update", messageContent]
+      );
+    }
+
+    // Delete the application
+    await db.query(
+      "DELETE FROM property_applications WHERE application_id = $1",
+      [application_id]
+    );
+
     res.redirect("/landlord-dashboard/applications");
   } catch (err) {
-    console.error("Error updating application status:", err);
-    res.status(500).send("Error updating application status");
+    console.error("Error processing application decision:", err);
+    res.status(500).send("Error processing application decision");
   }
 });
 

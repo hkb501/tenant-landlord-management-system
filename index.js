@@ -240,7 +240,6 @@ app.post("/tenant-dashboard/profile/update", async (req, res) => {
 });
 
 // Mail box
-
 app.get("/tenant-dashboard/mailbox", async (req, res) => {
   if (!req.isAuthenticated()) {
     return res.redirect("/resident-login");
@@ -248,60 +247,133 @@ app.get("/tenant-dashboard/mailbox", async (req, res) => {
 
   const userId = req.user.id;
 
-  // Fetch messages where the tenant is either sender or receiver
-  const mailboxQuery = `
-      SELECT m.sender_id, m.receiver_id, m.subject, m.message_content, m.sent_at, u.email AS sender_email 
-        FROM mailbox m
-        JOIN users u ON m.sender_id = u.id
-        WHERE m.sender_id = $1 OR m.receiver_id = $1
-        ORDER BY m.sent_at DESC
-  `;
-  const mailboxResult = await db.query(mailboxQuery, [userId]);
-  res.render("mailbox", {
-    title: "mailbox",
-    cssFile: "mailbox.css",
-    mailbox: mailboxResult.rows,
-    user: req.user,
-  });
-});
+  try {
+    // Fetch received messages where the tenant is the receiver
+    const mailboxQuery = `
+      SELECT m.sender_id, m.receiver_id, m.subject, m.message_content, m.sent_at, sender.email AS sender_email
+      FROM mailbox m
+      JOIN users sender ON m.sender_id = sender.id
+      WHERE m.receiver_id = $1
+      ORDER BY m.sent_at DESC
+    `;
+    const mailboxResult = await db.query(mailboxQuery, [userId]);
 
-// Composing a new message
-app.get("/tenant-dashboard/mailbox/new", (req, res) => {
+    res.render("mailbox", {
+      title: "Inbox",
+      cssFile: "mailbox.css",
+      mailbox: mailboxResult.rows,
+      user: req.user,
+      isSentView: false, // This flag differentiates between sent and received views
+    });
+  } catch (err) {
+    console.error("Error fetching inbox messages:", err);
+    res.status(500).send("Error fetching inbox messages");
+  }
+});
+app.get("/tenant-dashboard/mailbox/sent", async (req, res) => {
   if (!req.isAuthenticated()) {
     return res.redirect("/resident-login");
   }
 
-  // Render the compose message form
-  res.render("compose-message", {
-    title: "Compose New Message",
-    cssFile: "compose-message.css",
-    user: req.user, // Pass the logged-in user to the view
-  });
+  const userId = req.user.id;
+
+  try {
+    // Fetch sent messages where the tenant is the sender
+    const sentMessagesQuery = `
+      SELECT m.sender_id, m.receiver_id, m.subject, m.message_content, m.sent_at, receiver.email AS receiver_email
+      FROM mailbox m
+      JOIN users receiver ON m.receiver_id = receiver.id
+      WHERE m.sender_id = $1
+      ORDER BY m.sent_at DESC
+    `;
+    const sentMessagesResult = await db.query(sentMessagesQuery, [userId]);
+
+    res.render("mailbox", {
+      title: "Sent Messages",
+      cssFile: "mailbox.css",
+      mailbox: sentMessagesResult.rows,
+      user: req.user,
+      isSentView: true, // This flag differentiates between sent and received views
+    });
+  } catch (err) {
+    console.error("Error fetching sent messages:", err);
+    res.status(500).send("Error fetching sent messages");
+  }
 });
+
+// Composing a new message
+app.get("/tenant-dashboard/mailbox/new", async (req, res) => {
+  if (!req.isAuthenticated() || req.user.role !== "tenant") {
+    return res.redirect("/resident-login");
+  }
+
+  try {
+    // Assuming you have a way to get the tenant's landlord ID
+    const tenantId = req.user.id;
+    const landlordQuery = `
+      SELECT l.id, l.name, l.email
+  FROM tenant_landlord tl
+  JOIN users l ON tl.landlord_id = l.id
+  WHERE tl.tenant_id = $1
+    `;
+    const landlordResult = await db.query(landlordQuery, [tenantId]);
+    const landlord = landlordResult.rows[0];
+
+    if (!landlord) {
+      res.render("compose-message", {
+        title: "Composing message",
+        user: req.user,
+        landlord: null,
+        cssFile: "compose-message.css",
+        error: "No landlord found for your account.",
+      });
+    } else {
+      res.render("compose-message", {
+        title: "Composing message",
+        user: req.user,
+        landlord: landlord,
+        cssFile: "compose-message.css",
+        error: null,
+      });
+    }
+  } catch (error) {
+    console.error("Error fetching landlord for tenant:", error);
+    res.status(500).send("Error loading compose message page");
+  }
+});
+
+// Sending email for tenant
 app.post("/tenant-dashboard/mailbox/send", async (req, res) => {
   if (!req.isAuthenticated()) {
     return res.redirect("/resident-login");
   }
 
-  const { receiver_email, subject, message_content } = req.body;
+  const { receiver_id, subject, message_content } = req.body;
+
   try {
+    // Check if the receiver exists
     const receiverResult = await db.query(
-      "SELECT id FROM users WHERE email = $1",
-      [receiver_email]
+      "SELECT id, email FROM users WHERE id = $1",
+      [receiver_id]
     );
+
     if (receiverResult.rows.length === 0) {
+      // Render the view with an error message and necessary context
       return res.render("compose-message", {
         title: "Compose New Message",
         cssFile: "compose-message.css",
-        error: "The specified email does not exist in our database.",
+        user: req.user, // Ensure user context is passed
+        landlord: null, // or pass the actual landlord if available
+        error: "The specified receiver does not exist in our database.",
       });
     }
-    const receiver_id = receiverResult.rows[0].id;
+
     // Insert the new message into the mailbox table
     const insertQuery = `
-          INSERT INTO mailbox (sender_id, receiver_id, subject, message_content, sent_at)
-          VALUES ($1, $2, $3, $4, NOW())
-      `;
+    INSERT INTO mailbox (sender_id, receiver_id, subject, message_content, sent_at)
+    VALUES ($1, $2, $3, $4, NOW())
+  `;
+
     await db.query(insertQuery, [
       req.user.id,
       receiver_id,
@@ -309,11 +381,11 @@ app.post("/tenant-dashboard/mailbox/send", async (req, res) => {
       message_content,
     ]);
 
-    // Redirect back to the mailbox after sending the message
+    // Redirect back to the mailbox after successfully sending the message
     res.redirect("/tenant-dashboard/mailbox");
   } catch (err) {
-    console.error(err);
-    res.redirect("/tenant-dashboard/mailbox/new");
+    console.error("Error sending message:", err);
+    res.status(500).send("An error occurred while sending the message.");
   }
 });
 
@@ -515,7 +587,25 @@ app.get("/tenant-dashboard/my-applications", async (req, res) => {
     res.status(500).send("Error fetching applications");
   }
 });
-
+app.get("/tenant-dashboard/download-documents", (req, res) => {
+  if (!req.isAuthenticated() || req.user.role !== "tenant") {
+    return res.redirect("/resident-login");
+  }
+  res.render("download-documents", {
+    title: "Download Documents",
+    documents: [
+      {
+        name: "Rental Application Form",
+        url: "https://legaltemplates.net/form/rental-application/",
+      },
+      {
+        name: "Lease Agreement Template",
+        url: "https://ipropertymanagement.com/templates/rental-application-form",
+      },
+    ],
+    cssFile: "mailbox.css",
+  });
+});
 // landlord dashboard route
 app.get("/landlord-dashboard", async (req, res) => {
   if (!req.isAuthenticated() || req.user.role !== "landlord") {
@@ -551,12 +641,27 @@ app.get("/landlord-dashboard", async (req, res) => {
 
     // Fetch mailbox messages related to the landlord
     const mailboxQuery = `
-      SELECT m.sender_id, m.receiver_id, m.subject, m.message_content, m.sent_at, u.email AS sender_email 
-      FROM mailbox m
-      JOIN users u ON m.sender_id = u.id
-      WHERE m.sender_id = $1 OR m.receiver_id = $1
-      ORDER BY m.sent_at DESC
-    `;
+    SELECT 
+        m.sender_id, 
+        m.receiver_id, 
+        m.subject, 
+        m.message_content, 
+        m.sent_at, 
+        sender.email AS sender_email,
+        sender.name AS sender_name,
+        receiver.name AS receiver_name,
+        receiver.email AS receiver_email
+    FROM 
+        mailbox m
+    JOIN 
+        users sender ON m.sender_id = sender.id
+    JOIN 
+        users receiver ON m.receiver_id = receiver.id
+    WHERE 
+        m.receiver_id = $1
+    ORDER BY 
+        m.sent_at DESC
+`;
     const mailboxResult = await db.query(mailboxQuery, [landlordId]);
 
     res.render("landlord-dashboard", {
@@ -694,28 +799,28 @@ app.get("/landlord-dashboard/add-property", async (req, res) => {
 // Route to handle property addition with image upload
 app.post(
   "/landlord-dashboard/add-property",
-  upload.array("propertyImages", 5), // Accept up to 5 images
+  upload.array("propertyImages"),
   async (req, res) => {
     const { address, price, bedrooms, bathrooms } = req.body;
-    const imageBuffers = req.files.map((file) => file.buffer);
-    const base64Images = imageBuffers.map((buffer) =>
-      buffer.toString("base64")
-    );
-    const imagesJSON = JSON.stringify(base64Images); // Convert to JSON array
+    const images = req.files; // Array of image files
+    const imagesBase64 = images.map((file) => file.buffer.toString("base64")); // Convert buffer to base64 strings
+    const imagesJson = JSON.stringify(imagesBase64); // Convert array to JSON string
+
+    // Assuming landlord_id is obtained from the authenticated user's session
+    const landlord_id = req.user.id; // Adjust this as per your authentication setup
 
     try {
       await db.query(
-        "INSERT INTO properties (landlord_id, address, price, bedrooms, bathrooms, images, created_at) VALUES ($1, $2, $3, $4, $5, $6, NOW())",
-        [req.user.id, address, price, bedrooms, bathrooms, imagesJSON]
+        `INSERT INTO properties (landlord_id, address, price, bedrooms, bathrooms, images) VALUES ($1, $2, $3, $4, $5, $6)`,
+        [landlord_id, address, price, bedrooms, bathrooms, imagesJson]
       );
-      res.redirect("/landlord-dashboard");
+      return res.redirect("/landlord-dashboard");
     } catch (err) {
       console.error("Error adding property:", err);
-      res.status(500).send("Server error");
+      res.status(500).send("Error adding property");
     }
   }
 );
-
 // My property tab
 app.get("/landlord-dashboard/my-properties", async (req, res) => {
   if (!req.isAuthenticated() || req.user.role !== "landlord") {
@@ -724,22 +829,12 @@ app.get("/landlord-dashboard/my-properties", async (req, res) => {
 
   try {
     const landlordId = req.user.id;
-    const propertiesResult = await db.query(
-      `SELECT id, address, price, bedrooms, bathrooms, created_at, images FROM properties WHERE landlord_id = $1`,
-      [landlordId]
-    );
+    const propertiesQuery = "SELECT * FROM properties WHERE landlord_id = $1";
+    const propertiesResult = await db.query(propertiesQuery, [landlordId]);
 
     const properties = propertiesResult.rows.map((property) => {
       if (property.images) {
-        try {
-          // Ensure property.images is an array of base64 strings
-          property.images = JSON.parse(property.images);
-        } catch (err) {
-          console.error("Error parsing images:", err);
-          property.images = []; // Fallback to empty array if parsing fails
-        }
-      } else {
-        property.images = [];
+        property.images = JSON.parse(property.images); // Parse images stored as JSON
       }
       return property;
     });
@@ -748,11 +843,11 @@ app.get("/landlord-dashboard/my-properties", async (req, res) => {
       title: "My Properties",
       cssFile: "my-properties.css",
       properties: properties,
-      user: req.user,
+      error: null,
     });
   } catch (err) {
-    console.error(err);
-    res.redirect("/landlord-dashboard");
+    console.error("Error fetching properties:", err);
+    res.status(500).send("Error fetching properties");
   }
 });
 
@@ -783,27 +878,58 @@ app.get("/landlord-dashboard/mailbox", async (req, res) => {
     return res.redirect("/resident-login");
   }
 
-  const userId = req.user.id;
+  const landlordId = req.user.id;
 
-  // Fetch messages where the landlord is either sender or receiver
-  const mailboxQuery = `
-      SELECT m.sender_id, m.receiver_id, m.subject, m.message_content, m.sent_at, u.email AS sender_email 
-      FROM mailbox m
-      JOIN users u ON m.sender_id = u.id
-      WHERE m.sender_id = $1 OR m.receiver_id = $1
-      ORDER BY m.sent_at DESC
-  `;
   try {
-    const mailboxResult = await db.query(mailboxQuery, [userId]);
+    const mailboxQuery = `
+      SELECT m.sender_id, m.receiver_id, m.subject, m.message_content, m.sent_at, sender.email AS sender_email
+      FROM mailbox m
+      JOIN users sender ON m.sender_id = sender.id
+      WHERE m.receiver_id = $1
+      ORDER BY m.sent_at DESC
+    `;
+    const mailboxResult = await db.query(mailboxQuery, [landlordId]);
+
     res.render("mailbox", {
-      title: "Landlord Mailbox",
+      title: "Inbox",
       cssFile: "mailbox.css",
       mailbox: mailboxResult.rows,
       user: req.user,
+      isSentView: false, // This flag differentiates between sent and received views
     });
   } catch (err) {
     console.error("Error fetching mailbox:", err);
-    res.redirect("/landlord-dashboard");
+    res.status(500).send("Error fetching mailbox");
+  }
+});
+// Messages that landlord has sent
+app.get("/landlord-dashboard/mailbox/sent", async (req, res) => {
+  if (!req.isAuthenticated() || req.user.role !== "landlord") {
+    return res.redirect("/resident-login");
+  }
+
+  const landlordId = req.user.id;
+
+  try {
+    const sentMessagesQuery = `
+      SELECT m.sender_id, m.receiver_id, m.subject, m.message_content, m.sent_at, receiver.email AS receiver_email
+      FROM mailbox m
+      JOIN users receiver ON m.receiver_id = receiver.id
+      WHERE m.sender_id = $1
+      ORDER BY m.sent_at DESC
+    `;
+    const sentMessagesResult = await db.query(sentMessagesQuery, [landlordId]);
+
+    res.render("mailbox", {
+      title: "Sent Messages",
+      cssFile: "mailbox.css",
+      mailbox: sentMessagesResult.rows,
+      user: req.user,
+      isSentView: true, // This flag differentiates between sent and received views
+    });
+  } catch (err) {
+    console.error("Error fetching sent messages:", err);
+    res.status(500).send("Error fetching sent messages");
   }
 });
 // Composing new email for the landlord

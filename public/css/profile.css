@@ -20,7 +20,7 @@ body {
 
 .profile-container h2 {
     text-align: center;
-    color: pink;
+    color: whitesmoke;
 }
 
 .profile-container label {
@@ -30,8 +30,9 @@ body {
     color: whitesmoke;
 }
 
-.profile-container input {
-    width: 100%;
+.profile-container input,
+.profile-container select {
+    width: 90%;
     padding: 8px;
     margin-top: 5px;
     border-radius: 5px;
@@ -42,14 +43,19 @@ body {
 
 .profile-container button {
     width: 100%;
+    margin-top :20px;
     padding: 10px;
-    margin-top: 20px;
-    background-color: pink;
     border: none;
-    border-radius: 5px;
-    color: black;
-    font-weight: bold;
+    background-color: transparent;
+    color: whitesmoke;
+    border: 2px solid pink; /* Pink border */
+    border-radius: 4px;
     cursor: pointer;
+    text-decoration: none;
+}
+
+.profile-container button:hover {
+    background-color: pink;
 }
 
 footer {

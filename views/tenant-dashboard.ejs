@@ -10,6 +10,7 @@
                 <li><a href="/tenant-dashboard/mailbox">Mailbox</a></li>
                 <li><a href="/tenant-dashboard/properties">properties</a></li>
                 <li><a href="/tenant-dashboard/my-applications">My Applications</a></li> 
+                <li><a href="/tenant-dashboard/download-documents">Download Documents</a></li>
             </ul>
         </div>
 
@@ -52,7 +53,7 @@
                                 <strong>From:</strong> <%= message.sender_id === user.id ? 'You' : 'Landlord' %><br>
                                 <strong>Subject:</strong> <%= message.subject %><br>
                                 <strong>Date:</strong> <%= new Date(message.sent_at).toLocaleDateString() %><br>
-                                <p><%= message.message_content.slice(0, 100) %>... <a href="#">Read More</a></p>
+                                <p><%= message.message_content.slice(0, 100) %>... <a href="/tenant-dashboard/mailbox">Read More</a></p>
                             </li>
                         <% }) %>
                     </ul>

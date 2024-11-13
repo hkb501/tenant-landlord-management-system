@@ -13,11 +13,19 @@
                         <p><strong>Bathrooms:</strong> <%= property.bathrooms %></p>
                       
                         <% if (property.images && property.images.length > 0) { %>
-                          <div class="property-images">
-                            <% property.images.forEach((image, imgIndex) => { %>
-                              <img src="data:image/jpeg;base64,<%= image %>" alt="Property Image <%= imgIndex + 1 %>" class="property-image" />
-                            <% }) %>
-                          </div>
+                            <div class="property-images" id="property-images-<%= index %>">
+                                <% property.images.forEach((image, imgIndex) => { %>
+                                  <img
+                                    src="data:image/jpeg;base64,<%= image %>"
+                                    alt="Property Image <%= imgIndex + 1 %>"
+                                    class="property-image"
+                                    data-img-index="<%= imgIndex %>"
+                                    <% if (imgIndex > 0) { %> style="display: none;" <% } %> <!-- Hide all except the first image -->
+                                  />
+                                <% }) %>
+                                <button class="prev" onclick="showPrevImage(<%= index %>)">&#10094;</button>
+                                <button class="next" onclick="showNextImage(<%= index %>)">&#10095;</button>
+                              </div>
                         <% } else { %>
                           <p>No images available</p>
                         <% } %>
@@ -27,8 +35,7 @@
                           <input type="hidden" name="propertyId" value="<%= property.id %>" />
                           <button type="submit" class="delete-button">Delete Property</button>
                         </form>
-                      </div>
-                      
+                    </div>
                 <% }) %>
             </div>
         <% } else { %>
@@ -39,5 +46,31 @@
     <footer>
         <p>&copy; 2024 Property Management Services</p>
     </footer>
+
+    <script>
+        function showNextImage(propertyIndex) {
+    const container = document.getElementById(`property-images-${propertyIndex}`);
+    const images = container.querySelectorAll('.property-image');
+    let currentIndex = Array.from(images).findIndex(img => img.style.display !== 'none');
+
+    if (currentIndex !== -1) {
+      images[currentIndex].style.display = 'none';
+      currentIndex = (currentIndex + 1) % images.length;
+      images[currentIndex].style.display = 'block';
+    }
+  }
+
+  function showPrevImage(propertyIndex) {
+    const container = document.getElementById(`property-images-${propertyIndex}`);
+    const images = container.querySelectorAll('.property-image');
+    let currentIndex = Array.from(images).findIndex(img => img.style.display !== 'none');
+
+    if (currentIndex !== -1) {
+      images[currentIndex].style.display = 'none';
+      currentIndex = (currentIndex - 1 + images.length) % images.length;
+      images[currentIndex].style.display = 'block';
+    }
+  }
+      </script>
 </body>
 </html>

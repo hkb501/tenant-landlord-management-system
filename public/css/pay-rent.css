@@ -44,19 +44,18 @@ body {
 /* Button styling */
 #payment-form button {
     width: 100%;
-    padding: 12px;
-    margin-top: 15px;
-    font-size: 1.1rem;
-    color: #ffffff;
-    background-color: #28a745;
+    padding: 10px;
     border: none;
-    border-radius: 5px;
+    background-color: transparent;
+    color: whitesmoke;
+    border: 2px solid pink; /* Pink border */
+    border-radius: 4px;
     cursor: pointer;
-    transition: background-color 0.3s ease;
+    text-decoration: none;
 }
 
 #payment-form button:hover {
-    background-color: #218838;
+    background-color: pink;
 }
 
 /* Responsive adjustments */

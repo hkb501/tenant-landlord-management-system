@@ -55,3 +55,10 @@ body {
     margin-bottom: 10px;
     text-align: center;
 }
+footer {
+    text-align: center;
+    margin-top: 290px;
+    padding: 10px 0;
+    background-color: #1a1a1a;
+    color: whitesmoke;
+}

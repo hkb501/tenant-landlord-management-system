@@ -17,7 +17,10 @@
             <input type="email" id="email" name="email" value="<%= user.email %>" readonly>
 
             <label for="role">Role:</label>
-            <input type="text" id="role" name="role" value="<%= user.role %>" required>
+            <select id="role" name="role" required>
+                <option value="tenant" <%= user.role === 'tenant' ? 'selected' : '' %>>Tenant</option>
+                <option value="landlord" <%= user.role === 'landlord' ? 'selected' : '' %>>Landlord</option>
+            </select>
 
             <label for="created_at">Account Created At:</label>
             <input type="text" id="created_at" name="created_at" value="<%= new Date(user.created_at).toLocaleDateString() %>" readonly>
